@@ -1,0 +1,86 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  generation: 1
+  labels:
+    app.kubernetes.io/version: "0.1"
+  name: maven-af-nexus-w-params
+spec:
+  description: Maven build with parameters and AF CA.
+  params:
+    - default:  registry.access.redhat.com/ubi8/openjdk-11
+      description: Maven base image
+      name: MAVEN_IMAGE
+      type: string
+    - default: clean package
+      description: maven goals to run
+      name: GOALS
+      type: string
+    - default: .
+      description: The context directory within the repository for sources on which
+        we want to execute maven goals.
+      name: CONTEXT_DIR
+      type: string
+    - default: -s mvn-cfg/settings-maven-public.xml -Djavax.net.ssl.trustStore=cacerts
+      description: Maven options
+      name: MAVEN_OPTIONS
+      type: string
+    - default: mvn-cfg/CA.pem
+      description: Local CA file (in der format)
+      name: CA
+      type: string
+    - default: /usr/lib/jvm/java-11/lib/security/cacerts
+      description: JDK CA
+      name: BASE_IMG_CACERTS
+      type: string
+  steps:
+    - image: $(params.MAVEN_IMAGE)
+      name: mvn-goals
+      resources:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: 500m
+          memory: 500Mi
+      script: |
+        #!/usr/bin/env sh
+        
+        KS=cacerts
+        
+        if [ -f "$KS" ]; then
+          echo "rm -f $KS"
+          rm -f $KS
+        fi
+        
+        if [ -f "$(params.BASE_IMG_CACERTS)" ]; then
+          echo "cp $(params.BASE_IMG_CACERTS) $KS"
+          cp $(params.BASE_IMG_CACERTS) $KS
+          chmod a+w $KS
+        else
+          echo "$(params.BASE_IMG_CACERTS). No such file."
+          exit 1
+        fi
+        
+        if [ -f "$(params.CA)" ]; then
+          echo "keytool -import -alias af -keystore $KS -file $(params.CA)  -storepass changeit -noprompt"
+          keytool -import -alias af -keystore $KS -file $(params.CA)  -storepass changeit -noprompt
+        else
+          echo "$(params.CA). No such file."
+          exit 1
+        fi
+        
+        USE_MAVEN_CACHE=""
+        if [ "$(workspaces.mvn-cache.bound)" = true ]; then
+          USE_MAVEN_CACHE="-Dmaven.repo.local=$(workspaces.mvn-cache.path)/m2/repository"
+          PATH=$(workspaces.mvn-cache.path)/maven/bin:$PATH
+        fi
+        
+        echo "mvn $(params.MAVEN_OPTIONS) $USE_MAVEN_CACHE $(params.GOALS)"
+        mvn $(params.MAVEN_OPTIONS) $USE_MAVEN_CACHE $(params.GOALS)
+      workingDir: $(workspaces.source.path)/$(params.CONTEXT_DIR)
+  workspaces:
+    - description: The maven project workspace.
+      name: source
+    - description: The maven cache directory (M2).
+      name: mvn-cache

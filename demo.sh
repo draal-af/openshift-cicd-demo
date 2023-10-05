@@ -43,7 +43,7 @@ done
 
 declare -r dev_prj="$PRJ_PREFIX-dev"
 declare -r stage_prj="$PRJ_PREFIX-stage"
-declare -r cicd_prj="$PRJ_PREFIX-cicd"
+declare -r cicd_prj="aldind-dev"
 
 command.help() {
   cat <<-EOF
@@ -68,25 +68,25 @@ EOF
 command.install() {
   oc version >/dev/null 2>&1 || err "no oc binary found"
 
-  info "Creating namespaces $cicd_prj, $dev_prj, $stage_prj"
-  oc get ns $cicd_prj 2>/dev/null  || {
-    oc new-project $cicd_prj
-  }
-  oc get ns $dev_prj 2>/dev/null  || {
-    oc new-project $dev_prj
-  }
-  oc get ns $stage_prj 2>/dev/null  || {
-    oc new-project $stage_prj
-  }
+#  info "Creating namespaces $cicd_prj, $dev_prj, $stage_prj"
+#  oc get ns $cicd_prj 2>/dev/null  || {
+#    oc new-project $cicd_prj
+#  }
+#  oc get ns $dev_prj 2>/dev/null  || {
+#    oc new-project $dev_prj
+#  }
+#  oc get ns $stage_prj 2>/dev/null  || {
+#    oc new-project $stage_prj
+#  }
 
-  info "Configure service account permissions for pipeline"
-  oc policy add-role-to-user edit system:serviceaccount:$cicd_prj:pipeline -n $dev_prj
-  oc policy add-role-to-user edit system:serviceaccount:$cicd_prj:pipeline -n $stage_prj
-  oc policy add-role-to-user system:image-puller system:serviceaccount:$dev_prj:default -n $cicd_prj
-  oc policy add-role-to-user system:image-puller system:serviceaccount:$stage_prj:default -n $cicd_prj
+#  info "Configure service account permissions for pipeline"
+#  oc policy add-role-to-user edit system:serviceaccount:$cicd_prj:pipeline -n $dev_prj
+#  oc policy add-role-to-user edit system:serviceaccount:$cicd_prj:pipeline -n $stage_prj
+#  oc policy add-role-to-user system:image-puller system:serviceaccount:$dev_prj:default -n $cicd_prj
+#  oc policy add-role-to-user system:image-puller system:serviceaccount:$stage_prj:default -n $cicd_prj
 
-  info "Deploying CI/CD infra to $cicd_prj namespace"
-  oc apply -f infra -n $cicd_prj
+#  info "Deploying CI/CD infra to $cicd_prj namespace"
+#  oc apply -f infra -n $cicd_prj
   GITEA_HOSTNAME=$(oc get route gitea -o template --template='{{.spec.host}}' -n $cicd_prj)
 
   info "Deploying pipeline and tasks to $cicd_prj namespace"
